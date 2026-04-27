@@ -9,5 +9,5 @@ There's too much to read on the internet. Save it for later.
 cargo install --path rl_cli
 
 # Run the CLI
-rl
+rl_cli
 ```

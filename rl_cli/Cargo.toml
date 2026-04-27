@@ -4,4 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+rl_utils = { path = "../rl_utils" }
+rl_db = { path = "../rl_db" }
 inquire = "0.9.4"
+
+[features]
+dev = ["rl_utils/dev"]

@@ -1,5 +1,7 @@
 **/target
+**/config.local
 
 **/*.env
+**/*.db
 
-.DS_Store
+**/.DS_Store

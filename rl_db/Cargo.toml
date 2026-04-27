@@ -4,3 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+rl_utils = { path = "../rl_utils" }
+rusqlite = { version = "0.39.0", features = ["bundled"] }
