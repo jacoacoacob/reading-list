@@ -2,7 +2,6 @@
 resolver = "3"
 members = [
   "rl_cli",
-  "rl_db",
-  "rl_utils",
+  "rl_shared",
   "rl_web",
 ]

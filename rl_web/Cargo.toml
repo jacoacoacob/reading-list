@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-rl_db = { path = "../rl_db" }
+rl_shared = { path = "../rl_shared" }
