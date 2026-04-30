@@ -1,15 +1,19 @@
-use inquire::{Select, Text, error::InquireResult, required};
+use inquire::{Select, error::InquireResult};
 
-use rl_shared::{Bookmark, Config, Database};
+use rl_shared::{Config, Context, Database};
 
-use crate::bookmark_autocompletion::BookmarkAutocompleter;
+use crate::handlers::{handle_add, handle_search};
 
-mod bookmark_autocompletion;
+mod autocompletion;
+mod handlers;
+mod validators;
 
 fn main() -> InquireResult<()> {
     let config = Config::default();
 
     let database = Database::new(&config);
+
+    let ctx = Context::new(&database, &config);
 
     database.healthcheck().expect("database healthcheck");
 
@@ -21,55 +25,23 @@ fn main() -> InquireResult<()> {
             vec![
                 "Search:    search your bookmarks",
                 "Add:       add a new bookmark",
-            ]
-        ).prompt()?;
+            ],
+        )
+        .with_formatter(&|x| {
+            x.to_string()
+                .split_inclusive(":")
+                .last()
+                .expect("get action name")
+                .trim()
+                .to_string()
+        })
+        .prompt()?;
 
         let action = action.split_inclusive(":").next().expect("Get action name");
 
         match action {
-            "Search:" => {
-                let bookmarks = database.list_bookmarks(None).expect("list bookmarks");                
-
-                let choice = Text::new("Search bookmarks")
-                    .with_autocomplete(BookmarkAutocompleter::new(bookmarks))
-                    .prompt()?;
-
-                
-
-                println!("{:#}", choice);
-
-            }
-            "Add:" => {
-                let url = Text::new("URL")
-                    .with_validator(required!("URL is required"))
-                    .with_help_message("[required] add the URL for this bookmark")
-                    .prompt()?;
-
-                let name = Text::new("Name")
-                    .with_help_message("[optional] give this bookmark a descriptive name")
-                    .prompt()?;
-                let tags = Text::new("Tags")
-                    .with_help_message("[optional] add comma-separated tags for this bookmark")
-                    .prompt()?
-                    .split(',')
-                    .map(|tag| tag.trim().to_string())
-                    .filter(|tag| tag.len() > 0)
-                    .collect();
-
-                let bookmark = Bookmark::builder()
-                    .url(&url.trim())
-                    .name(&name.trim())
-                    .tags(tags)
-                    .build();
-
-                match database.add_bookmark(&bookmark, None) {
-                    Ok(_) => {}
-                    Err(error) => {
-                        eprintln!("{:#?}", error);
-                    }
-                }
-
-            }
+            "Search:" => handle_search(&ctx)?,
+            "Add:" => handle_add(&ctx)?,
             _ => {}
         }
     }
