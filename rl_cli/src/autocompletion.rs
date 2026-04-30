@@ -20,7 +20,7 @@ struct WeightedSuggestion {
 impl Autocomplete for BookmarkAutocompleter {
     fn get_completion(
         &mut self,
-        input: &str,
+        _input: &str,
         highlighted_suggestion: Option<String>,
     ) -> Result<Replacement, CustomUserError> {
         Ok(match highlighted_suggestion {
@@ -56,7 +56,7 @@ impl Autocomplete for BookmarkAutocompleter {
             if weight > 0 {
                 result.push(WeightedSuggestion {
                     value: format!("{}", b),
-                    weight
+                    weight,
                 });
             }
         }
