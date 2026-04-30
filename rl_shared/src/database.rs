@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use rusqlite::Connection;
 use rusqlite::Error;
 use rusqlite::Params;
@@ -28,28 +30,23 @@ impl TryFrom<&Row<'_>> for Bookmark {
     }
 }
 
-pub struct Database<'c> {
-    config: &'c Config,
+pub struct Database<'a> {
+    config: &'a Config,
 }
 
-struct QueryExecutor<'c> {
-    database: &'c Database<'c>,
-    tx: Option<&'c Transaction<'c>>,
+struct QueryExecutor<'a> {
+    tx: Option<&'a Transaction<'a>>,
     conn: Option<Connection>,
 }
 
-impl<'c> QueryExecutor<'c> {
-    fn new(
-        database: &'c Database<'c>,
-        tx: Option<&'c Transaction>
-    ) -> QueryExecutor<'c> {
+impl<'a> QueryExecutor<'a> {
+    fn new(database: &'a Database<'a>, tx: Option<&'a Transaction>) -> QueryExecutor<'a> {
         QueryExecutor {
-            database,
             tx,
             conn: match tx {
                 Some(_) => None,
                 None => Some(database.connect().expect("create database connection")),
-            }
+            },
         }
     }
 
@@ -80,13 +77,17 @@ impl<'c> QueryExecutor<'c> {
     }
 }
 
-impl<'c> Database<'c> {
-    pub fn new(config: &'c Config) -> Self {
+impl<'a> Database<'a> {
+    pub fn new(config: &'a Config) -> Self {
         Database { config }
     }
 
     pub fn connect(&self) -> Result<Connection> {
-        let conn = Connection::open(&self.config.database_location)?;
+        let mut database_path = PathBuf::new();
+        database_path.push(&self.config.database_directory);
+        database_path.push(&self.config.database_name);
+
+        let conn = Connection::open(database_path)?;
 
         self.create_tables_if_not_exists(&conn)?;
 
