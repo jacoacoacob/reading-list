@@ -17,7 +17,13 @@ impl TryFrom<&Row<'_>> for Bookmark {
 
     fn try_from(row: &Row) -> std::result::Result<Self, Self::Error> {
         let tags: String = row.get(6)?;
-        let tags: Vec<String> = tags.split(',').map(|x| x.to_string()).collect();
+        let tags: Vec<String> = tags
+            .replace("[", "")
+            .replace("]", "")
+            .replace('"', "")
+            .split(',')
+            .map(|tag| tag.to_string())
+            .collect();
 
         Ok(Bookmark {
             tags,
@@ -30,6 +36,7 @@ impl TryFrom<&Row<'_>> for Bookmark {
     }
 }
 
+#[derive(Debug)]
 pub struct Database<'a> {
     config: &'a Config,
 }
@@ -84,7 +91,7 @@ impl<'a> Database<'a> {
 
     pub fn connect(&self) -> Result<Connection> {
         let mut database_path = PathBuf::new();
-        database_path.push(&self.config.database_directory);
+        database_path.push(&self.config.assets_dir);
         database_path.push(&self.config.database_name);
 
         let conn = Connection::open(database_path)?;
@@ -132,11 +139,7 @@ impl<'a> Database<'a> {
 
         let mut stmt = conn.prepare("SELECT datetime('now')")?;
 
-        let result = stmt.query_one([], |result| result.get::<_, String>(0))?;
-
-        if cfg!(feature = "dev") {
-            println!("database online at: {result}");
-        }
+        let _result = stmt.query_one([], |result| result.get::<_, String>(0))?;
 
         Ok(())
     }
@@ -235,10 +238,10 @@ impl<'a> Database<'a> {
         &self,
         old: &'b Bookmark,
         new: &'b Bookmark,
-        tx: Option<&Transaction>,
+        tx: &Transaction,
     ) -> Result<&'b Bookmark> {
-        self.delete_bookmark(old, tx)?;
-        self.add_bookmark(new, tx)?;
+        self.delete_bookmark(old, Some(tx))?;
+        self.add_bookmark(new, Some(tx))?;
 
         Ok(new)
     }
