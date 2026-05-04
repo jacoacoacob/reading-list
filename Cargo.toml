@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+  "rl_build_utils",
   "rl_cli",
   "rl_shared",
   "rl_web",

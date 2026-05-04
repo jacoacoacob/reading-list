@@ -1,5 +1,6 @@
 use crate::{Config, Database};
 
+#[derive(Debug)]
 pub struct Context<'a> {
     pub config: &'a Config,
     pub database: &'a Database<'a>,

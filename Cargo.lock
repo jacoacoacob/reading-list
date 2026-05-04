@@ -374,10 +374,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rl_build_utils"
+version = "0.1.0"
+
+[[package]]
 name = "rl_cli"
 version = "0.1.0"
 dependencies = [
  "inquire",
+ "rl_build_utils",
  "rl_shared",
 ]
 
@@ -386,6 +391,7 @@ name = "rl_shared"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "rl_build_utils",
  "rusqlite",
 ]
 

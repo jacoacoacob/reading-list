@@ -1,6 +1,6 @@
 use std::{error::Error, fmt::Display, process::Command};
 
-use inquire::{Confirm, CustomUserError, InquireError, Select, Text, error::InquireResult, required};
+use inquire::{Confirm, InquireError, Select, Text, error::InquireResult, required};
 use rl_shared::{Bookmark, Context, Utc, extract_url_from_autocomplete_selection};
 
 use crate::{autocompletion::BookmarkAutocompleter, validators::UrlValidator};
@@ -15,6 +15,7 @@ pub fn handle_add(ctx: &Context) -> InquireResult<()> {
     let name = Text::new("Name")
         .with_help_message("[optional] give this bookmark a descriptive name")
         .prompt()?;
+
     let tags = Text::new("Tags")
         .with_help_message("[optional] add comma-separated tags for this bookmark")
         .prompt()?
@@ -74,6 +75,7 @@ pub fn handle_search(ctx: &Context) -> InquireResult<()> {
                 match action {
                     "Visit:" => handle_visit(ctx, &bookmark)?,
                     "Edit:" => handle_edit(ctx, &bookmark)?,
+                    "Delete:" => handle_delete(ctx, &bookmark)?,
                     _ => {}
                 }
             }
@@ -126,27 +128,21 @@ pub fn handle_visit(ctx: &Context, bookmark: &Bookmark) -> InquireResult<()> {
             match command.arg(&bookmark.url).spawn() {
                 Ok(_) => {
                     let mut new_bookmark = bookmark.clone();
-                    
+
+                    let mut conn = ctx.database.connect().expect("create database connection");
+
+                    let tx = conn.transaction().expect("create database transaction");
+
                     new_bookmark.visited = Utc::now();
 
-                    match ctx.database.update_bookmark(bookmark, &new_bookmark, None) {
-                        Ok(_) => {}
-                        Err(error) => {
-                            return Err(
-                                InquireError::Custom(
-                                    Box::new(error)
-                                )
-                            )
+                    match ctx.database.update_bookmark(bookmark, &new_bookmark, &tx) {
+                        Ok(_) => {
+                            tx.commit().expect("commit transaction");
                         }
+                        Err(error) => return Err(InquireError::Custom(Box::new(error))),
                     }
                 }
-                Err(error) => {
-                    return Err(
-                        InquireError::Custom(
-                            Box::new(error)
-                        )
-                    )
-                }
+                Err(error) => return Err(InquireError::Custom(Box::new(error))),
             }
         }
         None => {
@@ -181,26 +177,45 @@ pub fn handle_edit(ctx: &Context, bookmark: &Bookmark) -> InquireResult<()> {
         .filter(|tag| tag.len() > 0)
         .collect();
 
-    let confirm_message =
-        &format!("Are you sure you want to save\n\n {:#}", new_bookmark);
+    let confirm_message = &format!(
+        "Are you sure you want to save these updates?\n\n {:#}",
+        new_bookmark
+    );
 
     let did_confirm = Confirm::new(&confirm_message).prompt()?;
-    
+
     if did_confirm {
+        let mut conn = ctx.database.connect().expect("create database connection");
+
+        let tx = conn.transaction().expect("create database transaction");
+
         new_bookmark.updated = Utc::now();
 
-        match ctx.database.update_bookmark(&bookmark, &new_bookmark, None) {
-            Ok(_) => {}
-            Err(error) => {
-                return Err(
-                    InquireError::Custom(
-                        Box::new(error)
-                    )
-                )
+        match ctx.database.update_bookmark(&bookmark, &new_bookmark, &tx) {
+            Ok(_) => {
+                tx.commit().expect("commit transaction");
             }
+            Err(error) => return Err(InquireError::Custom(Box::new(error))),
         }
     }
 
     Ok(())
+}
 
+pub fn handle_delete(ctx: &Context, bookmark: &Bookmark) -> InquireResult<()> {
+    let confirm_message = format!(
+        "Are you sure you want to delete this bookmark?\n\n{:#}",
+        bookmark
+    );
+
+    let did_confirm = Confirm::new(&confirm_message).prompt()?;
+
+    if did_confirm {
+        match ctx.database.delete_bookmark(bookmark, None) {
+            Ok(()) => {}
+            Err(error) => return Err(InquireError::Custom(Box::new(error))),
+        }
+    }
+
+    Ok(())
 }

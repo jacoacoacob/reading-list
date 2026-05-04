@@ -7,5 +7,6 @@ edition = "2024"
 rl_shared = { path = "../rl_shared" }
 inquire = "0.9.4"
 
-[features]
-dev = ["rl_shared/dev"]
+[build-dependencies]
+rl_build_utils = { path = "../rl_build_utils" }
+rl_shared = { path = "../rl_shared" }

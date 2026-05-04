@@ -1,5 +1,6 @@
 use std::env;
 use std::fs;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct CliConfig {
@@ -10,7 +11,6 @@ pub struct CliConfig {
 #[derive(Debug)]
 pub struct Config {
     pub cli: CliConfig,
-    pub database_directory: String,
     pub database_name: String,
     pub assets_dir: String,
 }
@@ -34,7 +34,7 @@ fn parse_positional_env_arg(arg_name: &str) -> Option<String> {
 }
 
 /// Return the value passed as an arg (e.g. `--db <database_name>`)
-fn resolve_database_name_env_arg() -> String {
+fn get_rl_database_name() -> String {
     match parse_positional_env_arg("--db") {
         Some(database_name) => {
             let parts: Vec<_> = database_name.split(".").map(|x| x.to_string()).collect();
@@ -50,75 +50,67 @@ fn resolve_database_name_env_arg() -> String {
     "database.db".to_string()
 }
 
+fn get_rl_assets_dir() -> String {
+    match env::var("RL_ASSETS_DIR") {
+        Ok(value) if fs::canonicalize(&value).is_ok() => return value,
+        Ok(value) => {
+            eprintln!("RL_ASSETS_DIR '{value}' must be a valid path");
+        }
+        Err(_) => { /* Quietly continue */ }
+    }
+
+    if cfg!(app_env = "dev") {
+        let current_dir = env::current_dir().unwrap();
+        
+        let mut assets_dir = PathBuf::from(&current_dir);
+        assets_dir.push("assets");
+
+        assets_dir.to_str().unwrap().to_string()
+    } else {
+        let home_dir = env::home_dir().unwrap();
+    
+        let mut default_rl_assets_dir = PathBuf::from(&home_dir);
+        default_rl_assets_dir.push(".rl");
+    
+        default_rl_assets_dir.to_str().unwrap().to_string()
+    }
+}
+
+fn get_rl_cli_browser_args() -> Option<Vec<String>> {
+    match env::var("RL_CLI_BROWSER_ARGS") {
+        Ok(value) => Some(
+            value.split(',').map(|arg| arg.to_string()).collect()
+        ),
+        _ => None
+    }
+}
+
+fn get_rl_cli_browser_bin_path() -> Option<String> {
+    match env::var("RL_CLI_BROWSER_BIN_PATH") {
+        Ok(value) if fs::canonicalize(&value).is_ok() => {
+            Some(value)
+        }
+        Ok(value) => {
+            eprintln!("RL_CLI_BROWSER_BIN_PATH '{value}' must be a valid path");
+            None
+        }
+        Err(_) => None
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
-        let mut default_assets_dir = env::home_dir().expect("Get home directory");
-        default_assets_dir.push(".rl");
+        if cfg!(app_env = "dev") {
+            println!("config.rs: app_env == dev");
+        }
 
-        let default_database_directory = env::current_dir().unwrap();
-
-        let mut config_path = env::current_dir().unwrap();
-
-        config_path.push("config.local");
-
-        let mut config = Config {
-            assets_dir: default_assets_dir
-                .to_str()
-                .expect("convert default_assets_dir to &str")
-                .to_string(),
+        Config {
+            assets_dir: get_rl_assets_dir(),
             cli: CliConfig {
-                browser_args: None,
-                browser_bin_path: None,
+                browser_args: get_rl_cli_browser_args(),
+                browser_bin_path: get_rl_cli_browser_bin_path(),
             },
-            database_name: resolve_database_name_env_arg(),
-            database_directory: default_database_directory
-                .to_str()
-                .expect("convert default_database_directory to &str")
-                .to_string(),
-        };
-
-        match fs::read_to_string(config_path) {
-            Ok(text) => {
-                if text.trim().len() > 0 {
-                    for line in text.split('\n') {
-                        let mut parts = line.split('=');
-
-                        let key = parts.next().expect("get config key");
-                        let value = parts.next().expect(&format!("get config value for {key}"));
-
-                        match key.to_lowercase().as_str() {
-                            "cli.browser_args" => {
-                                config.cli.browser_args =
-                                    Some(value.split(',').map(|arg| arg.to_string()).collect());
-                            }
-                            "cli.browser_bin_path" => {
-                                config.cli.browser_bin_path = Some(value.to_string());
-                            }
-                            "assets_dir" => {
-                                config.assets_dir = value.to_string();
-                            }
-                            "database_directory" => {
-                                config.database_directory = value.to_string();
-                            }
-                            "database_name" => {
-                                config.database_name = value.to_string();
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-            Err(error) => {
-                if cfg!(feature = "dev") {
-                    eprintln!("Error reading config {:#?}", error);
-                }
-            }
+            database_name: get_rl_database_name(),
         }
-
-        if cfg!(feature = "dev") {
-            println!("{:#?}", config);
-        }
-
-        config
     }
 }

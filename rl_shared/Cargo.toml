@@ -7,5 +7,8 @@ edition = "2024"
 chrono = "0.4.44"
 rusqlite = { version = "0.39.0", features = ["bundled", "chrono"] }
 
-[features]
-dev = []
+[build-dependencies]
+rl_build_utils = { path = "../rl_build_utils" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(app_env, values("dev"))'] }

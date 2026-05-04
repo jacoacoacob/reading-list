@@ -1,6 +1,6 @@
 **/target
-**/config.local
 
+**/config.local.toml
 **/*.env
 **/*.db
 
